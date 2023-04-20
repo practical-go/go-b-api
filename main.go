@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 )
+
+var spaceflightNews []SpaceflightNews
+var catFacts []CatFact
 
 func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -16,20 +20,31 @@ func main() {
 }
 
 func handleNews(w http.ResponseWriter, r *http.Request) {
-	spaceflightNews, err := fetchSpaceflightNews()
-	if err != nil {
-		http.Error(w, "Error fetching news", http.StatusInternalServerError)
-		return
+	tag := r.URL.Query().Get("tag")
+
+	if tag != "cat" && spaceflightNews == nil {
+		var err error
+		spaceflightNews, err = fetchSpaceflightNews()
+		if err != nil {
+			http.Error(w, "Error fetching news", http.StatusInternalServerError)
+			return
+		}
 	}
-	catFacts, err := fetchCatFacts()
-	if err != nil {
-		http.Error(w, "Error fetching news", http.StatusInternalServerError)
-		return
+	if tag != "space" && catFacts == nil {
+		var err error
+		catFacts, err = fetchCatFacts()
+		if err != nil {
+			http.Error(w, "Error fetching news", http.StatusInternalServerError)
+			return
+		}
 	}
 	var news []News
+	var limit int
 
-	for i, sf, cf := 1, 0, 0; i <= 10; i++ {
-		if i%3 != 0 && sf < len(spaceflightNews) {
+	limit = getLimit(r.URL.Query().Get("limit"))
+
+	for i, sf, cf := 1, 0, 0; i <= limit; i++ {
+		if sf < len(spaceflightNews) && (i%3 != 0 && tag != "cat" || tag == "space") {
 			news = append(news, News{
 				Title:   spaceflightNews[sf].Title,
 				Summary: spaceflightNews[sf].Summary,
@@ -85,7 +100,7 @@ func fetchCatFacts() ([]CatFact, error) {
 }
 
 func fetchSpaceflightNews() ([]SpaceflightNews, error) {
-	body, err := getRequest("https://api.spaceflightnewsapi.net/v4/articles/?limit=10")
+	body, err := getRequest("https://api.spaceflightnewsapi.net/v3/articles?_limit=10")
 	if err != nil {
 		return nil, err
 	}
@@ -112,4 +127,16 @@ func getRequest(url string) ([]byte, error) {
 	}
 
 	return body, nil
+}
+
+func getLimit(limitStr string) int {
+	if limitStr == "" {
+		return 10
+	} else {
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil || limit > 50 || limit < 1 {
+			return 10
+		}
+		return limit
+	}
 }
