@@ -9,9 +9,7 @@ import (
 func handleNews(w http.ResponseWriter, r *http.Request) {
 	tag := r.URL.Query().Get("tag")
 	var spaceflightNews, catFacts []News
-
-	var limit int
-	limit = getLimit(r.URL.Query().Get("limit"))
+	limit := getLimit(r.URL.Query().Get("limit"))
 
 	spfclient := SpaceflightClient{}
 	catclient := CatfactClient{}
