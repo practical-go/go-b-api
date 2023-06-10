@@ -12,29 +12,21 @@ type SpaceflightClient struct {
 
 func (c *SpaceflightClient) Init() {
 	c.TimeoutTime = 3
-	c.URL = "https://api.spaceflightnewsapi.net/v3/articles?_limit=%d"
+	c.URL = "https://api.spaceflightnewsapi.net/v3/"
 }
 
-func (c *SpaceflightClient) fetchSpaceflightNews(limit int) ([]News, error) {
-	url := fmt.Sprintf(c.URL, limit)
+func (c *SpaceflightClient) fetchNews(limit int) ([]News, error) {
+	url := fmt.Sprintf("%sarticles?_limit=%d", c.URL, limit)
 	body, err := getRequest(url)
 	if err != nil {
 		return nil, err
 	}
 
-	var spfnews []SpaceflightNews
+	var spfnews []News
 	err = json.Unmarshal(body, &spfnews)
 	if err != nil {
 		return nil, err
 	}
 
-	var news []News
-	for _, spfnew := range spfnews {
-		news = append(news, News{
-			Title:   spfnew.Title,
-			Summary: spfnew.Summary,
-		})
-	}
-
-	return news, nil
+	return spfnews, nil
 }
