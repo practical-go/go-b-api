@@ -6,53 +6,54 @@ import (
 	"strconv"
 )
 
-func handleNews(w http.ResponseWriter, r *http.Request) {
-	tag := r.URL.Query().Get("tag")
-	var spaceflightNews, catFacts []News
-	limit := getLimit(r.URL.Query().Get("limit"))
+type newsFetcher interface {
+	fetchNews(limit int) ([]News, error)
+}
 
-	spfclient := SpaceflightClient{}
-	catclient := CatfactClient{}
+func handleNews(catFactsClient newsFetcher, spfNewsClient newsFetcher) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tag := r.URL.Query().Get("tag")
+		var spaceflightNews, catFacts []News
+		limit := getLimit(r.URL.Query().Get("limit"))
 
-	if tag != "cat" {
-		var err error
-		spfclient.Init()
-		spaceflightNews, err = spfclient.fetchSpaceflightNews(limit)
+		if tag != "cat" {
+			var err error
+			spaceflightNews, err = spfNewsClient.fetchNews(limit)
+			if err != nil {
+				http.Error(w, "Error fetching news", http.StatusInternalServerError)
+				return
+			}
+		}
+		if tag != "space" {
+			var err error
+			catFacts, err = catFactsClient.fetchNews(limit)
+			if err != nil {
+				http.Error(w, "Error fetching news", http.StatusInternalServerError)
+				return
+			}
+		}
+
+		var news []News
+		switch tag {
+		case "cat":
+			news = catFacts
+		case "space":
+			news = spaceflightNews
+		default:
+			news = createFeed(limit, spaceflightNews, catFacts)
+		}
+
+		jsonData, err := json.Marshal(news)
 		if err != nil {
-			http.Error(w, "Error fetching news", http.StatusInternalServerError)
+			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
-	}
-	if tag != "space" {
-		var err error
-		catclient.Init()
-		catFacts, err = catclient.fetchCatFacts(limit)
-		if err != nil {
-			http.Error(w, "Error fetching news", http.StatusInternalServerError)
-			return
-		}
-	}
 
-	var news []News
-	switch tag {
-	case "cat":
-		news = catFacts
-	case "space":
-		news = spaceflightNews
-	default:
-		news = createFeed(limit, spaceflightNews, catFacts)
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET")
+		w.Write(jsonData)
 	}
-
-	jsonData, err := json.Marshal(news)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET")
-	w.Write(jsonData)
 }
 
 func getLimit(limitStr string) int {

@@ -9,11 +9,11 @@ type CatfactClient struct {
 
 func (c *CatfactClient) Init() {
 	c.TimeoutTime = 2
-	c.URL = "https://cat-fact.herokuapp.com/facts/"
+	c.URL = "https://cat-fact.herokuapp.com/"
 }
 
-func (c *CatfactClient) fetchCatFacts(limit int) ([]News, error) {
-	body, err := getRequest(c.URL)
+func (c *CatfactClient) fetchNews(limit int) ([]News, error) {
+	body, err := getRequest(c.URL + "facts/")
 	if err != nil {
 		return nil, err
 	}
