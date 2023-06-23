@@ -19,12 +19,13 @@ func main() {
 	var dbClient dbClient
 	dbClient.Init(ctx, "newsdb", "news")
 	defer func() { dbClient.Close(ctx) }()
-	// dbClient.upsortItem(ctx, "Elephant Yoga", "Houston Elephants Do Yoga 7-days a Week to Stay Flexible and Healthy")
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Hello, world!")
 	})
 	http.HandleFunc("/news", handleNews(&catFactsClient, &spfNewsClient))
+	http.HandleFunc("/createnews", handleUpsertNews(&dbClient))
+	http.HandleFunc("/dbnews", handleDBNews(&dbClient))
 	http.ListenAndServe(":8080", nil)
 
 }

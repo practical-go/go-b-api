@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -40,18 +41,17 @@ func (c *dbClient) Close(ctx context.Context) error {
 	return nil
 }
 
-func (c *dbClient) upsortItem(ctx context.Context, title, summary string) error {
-	filter := bson.M{"title": title}
+func (c *dbClient) upsertNews(ctx context.Context, title, summary, uuid string) error {
+	filter := bson.M{"UUID": uuid}
 	update := bson.M{
 		"$set": bson.M{
-			"summary": summary,
+			"Title":   title,
+			"Summary": summary,
 		},
 	}
 
-	// Set the upsert option to true
 	opt := options.Update().SetUpsert(true)
 
-	// Perform an upsert operation
 	_, err := c.collection.UpdateOne(ctx, filter, update, opt)
 
 	if err != nil {
@@ -59,4 +59,30 @@ func (c *dbClient) upsortItem(ctx context.Context, title, summary string) error 
 	}
 
 	return nil
+}
+
+func (c *dbClient) fetchNews() ([]News, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cursor, err := c.collection.Find(ctx, bson.D{})
+	if err != nil {
+		return nil, err
+	}
+
+	defer cursor.Close(ctx)
+	var news []News
+
+	for cursor.Next(ctx) {
+		var result bson.M
+		if err := cursor.Decode(&result); err != nil {
+			return nil, err
+		}
+		news = append(news, News{
+			Title:   result["Title"].(string),
+			Summary: result["Summary"].(string),
+		})
+	}
+
+	return news, nil
 }
