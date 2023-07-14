@@ -61,7 +61,18 @@ func (c *dbClient) upsertNews(ctx context.Context, title, summary, uuid string) 
 	return nil
 }
 
-func (c *dbClient) fetchNews() ([]News, error) {
+func (c *dbClient) deleteNews(ctx context.Context, uuid string) error {
+	filter := bson.M{"UUID": uuid}
+
+	_, err := c.collection.DeleteOne(ctx, filter)
+
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *dbClient) fetchNews() ([]NewsExtended, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -71,16 +82,17 @@ func (c *dbClient) fetchNews() ([]News, error) {
 	}
 
 	defer cursor.Close(ctx)
-	var news []News
+	var news []NewsExtended
 
 	for cursor.Next(ctx) {
 		var result bson.M
 		if err := cursor.Decode(&result); err != nil {
 			return nil, err
 		}
-		news = append(news, News{
+		news = append(news, NewsExtended{
 			Title:   result["Title"].(string),
 			Summary: result["Summary"].(string),
+			Id:      result["UUID"].(string),
 		})
 	}
 

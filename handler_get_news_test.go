@@ -129,6 +129,7 @@ func TestNewsHandler(t *testing.T) {
 			response := rr.Result()
 			body, _ := ioutil.ReadAll(response.Body)
 			response.Body.Close()
+
 			if response.StatusCode != tt.expectedStatus {
 				t.Errorf("%s, expected %d, got %d", tt.name, tt.expectedStatus, response.StatusCode)
 			}

@@ -15,11 +15,20 @@ type newsUpserter interface {
 
 func handleUpsertNews(store newsUpserter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "404 Does not exist", http.StatusNotFound)
+			return
+		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		uuid := createUUID()
-		err := store.upsertNews(ctx, "Great news!", "We lied, this is BAD news.", uuid)
+		var uuid string
+		uuid = r.URL.Query().Get("uuid")
+		if uuid == "" {
+			uuid = createUUID()
+		}
+		err := store.upsertNews(ctx, "Japanese Zoo update", "Click to read more!", uuid)
 		if err != nil {
 			http.Error(w, "Error upserting news", http.StatusInternalServerError)
 			return
