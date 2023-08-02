@@ -10,6 +10,27 @@ type newsFetcher interface {
 	fetchNews(limit int) ([]News, error)
 }
 
+func handleDBNews(client *dbClient) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		news, err := client.fetchNews()
+		if err != nil {
+			http.Error(w, "Error fetching news", http.StatusInternalServerError)
+			return
+		}
+
+		jsonData, err := json.Marshal(news)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET")
+		w.Write(jsonData)
+	}
+}
+
 func handleNews(catFactsClient newsFetcher, spfNewsClient newsFetcher) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tag := r.URL.Query().Get("tag")

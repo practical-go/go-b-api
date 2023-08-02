@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 )
 
@@ -13,7 +16,7 @@ type catClientMock struct {
 }
 
 func (c *catClientMock) fetchNews(limit int) ([]News, error) {
-	return nil, c.fetchNewsError
+	return c.news, c.fetchNewsError
 }
 
 type spfClientMock struct {
@@ -22,7 +25,7 @@ type spfClientMock struct {
 }
 
 func (c *spfClientMock) fetchNews(limit int) ([]News, error) {
-	return nil, c.fetchNewsError
+	return c.news, c.fetchNewsError
 }
 
 func TestNewsHandler(t *testing.T) {
@@ -33,6 +36,7 @@ func TestNewsHandler(t *testing.T) {
 		tag            string
 		limit          int
 		expectedStatus int
+		expectedNews   []News
 	}{
 		{
 			"Success",
@@ -47,12 +51,13 @@ func TestNewsHandler(t *testing.T) {
 			"",
 			10,
 			http.StatusOK,
+			nil,
 		},
 		{
 			"Failure",
 			&catClientMock{
 				news:           nil,
-				fetchNewsError: errors.New("Some error"),
+				fetchNewsError: errors.New("Erorr "),
 			},
 			&spfClientMock{
 				news:           nil,
@@ -61,6 +66,7 @@ func TestNewsHandler(t *testing.T) {
 			"",
 			10,
 			http.StatusInternalServerError,
+			nil,
 		},
 		{
 			"Invalid Tag",
@@ -80,6 +86,9 @@ func TestNewsHandler(t *testing.T) {
 			"EOILNQWEQWEQWOEQWE",
 			10,
 			http.StatusOK,
+			[]News{
+				{Title: "Cat fact 1", Summary: "Cats are cool"},
+			},
 		},
 		{
 			"Invalid Limit",
@@ -104,6 +113,10 @@ func TestNewsHandler(t *testing.T) {
 			"",
 			-5,
 			http.StatusOK,
+			[]News{
+				{Title: "Cool space fact", Summary: "There are spaceflights"},
+				{Title: "Cat fact 1", Summary: "Cats are cool"},
+			},
 		},
 	}
 
@@ -113,8 +126,17 @@ func TestNewsHandler(t *testing.T) {
 			req := httptest.NewRequest("GET", "/news?tag="+tt.tag, nil)
 			newsHandler := handleNews(tt.catClient, tt.spfClient)
 			newsHandler(rr, req)
-			if rr.Result().StatusCode != tt.expectedStatus {
-				t.Errorf("%s, expected %d, got %d", tt.name, tt.expectedStatus, rr.Result().StatusCode)
+			response := rr.Result()
+			body, _ := ioutil.ReadAll(response.Body)
+			response.Body.Close()
+
+			if response.StatusCode != tt.expectedStatus {
+				t.Errorf("%s, expected %d, got %d", tt.name, tt.expectedStatus, response.StatusCode)
+			}
+			var responseData []News
+			_ = json.Unmarshal(body, &responseData)
+			if !reflect.DeepEqual(responseData, tt.expectedNews) {
+				t.Errorf("%s, Response data is not expected", tt.name)
 			}
 		})
 	}
