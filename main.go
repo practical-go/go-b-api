@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/gorilla/mux"
 )
 
 func main() {
@@ -20,13 +22,16 @@ func main() {
 	dbClient.Init(ctx, "newsdb", "news")
 	defer func() { dbClient.Close(ctx) }()
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	router := mux.NewRouter()
+	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Hello, world!")
-	})
-	http.HandleFunc("/news", handleNews(&catFactsClient, &spfNewsClient))
-	http.HandleFunc("/createnews", handleUpsertNews(&dbClient))
-	http.HandleFunc("/dbnews", handleDBNews(&dbClient))
-	http.HandleFunc("/deletenews", handleDeleteNews(&dbClient))
+	}).Methods("GET")
+	router.HandleFunc("/news", handleNews(&catFactsClient, &spfNewsClient)).Methods("GET")
+	router.HandleFunc("/dbnews", handleUpsertNews(&dbClient)).Methods("POST")
+	router.HandleFunc("/dbnews", handleDBNews(&dbClient)).Methods("GET")
+	router.HandleFunc("/dbnews", handleDeleteNews(&dbClient)).Methods("DELETE")
+
+	http.Handle("/", router)
 	http.ListenAndServe(":8080", nil)
 
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 )
 
 type SpaceflightClient struct {
@@ -15,18 +16,33 @@ func (c *SpaceflightClient) Init() {
 	c.URL = "https://api.spaceflightnewsapi.net/v3/"
 }
 
-func (c *SpaceflightClient) fetchNews(limit int) ([]News, error) {
+func (c *SpaceflightClient) fetchNews(limit int, ch chan fetchedNews, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	url := fmt.Sprintf("%sarticles?_limit=%d", c.URL, limit)
 	body, err := getRequest(url)
 	if err != nil {
-		return nil, err
+		ch <- fetchedNews{
+			news: nil,
+			err:  err,
+		}
+		return
 	}
 
 	var spfnews []News
 	err = json.Unmarshal(body, &spfnews)
 	if err != nil {
-		return nil, err
+		ch <- fetchedNews{
+			news: nil,
+			err:  err,
+		}
+		return
 	}
 
-	return spfnews, nil
+	ch <- fetchedNews{
+		news: spfnews,
+		err:  nil,
+	}
+
+	close(ch)
 }
