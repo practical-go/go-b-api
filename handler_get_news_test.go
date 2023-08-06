@@ -3,11 +3,13 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"sync"
 	"testing"
+	"time"
 )
 
 type catClientMock struct {
@@ -15,8 +17,12 @@ type catClientMock struct {
 	news           []News
 }
 
-func (c *catClientMock) fetchNews(limit int) ([]News, error) {
-	return c.news, c.fetchNewsError
+func (c *catClientMock) fetchNews(limit int, ch chan fetchedNews, wg *sync.WaitGroup) {
+	defer wg.Done()
+	ch <- fetchedNews{
+		news: c.news,
+		err:  c.fetchNewsError,
+	}
 }
 
 type spfClientMock struct {
@@ -24,8 +30,12 @@ type spfClientMock struct {
 	news           []News
 }
 
-func (c *spfClientMock) fetchNews(limit int) ([]News, error) {
-	return c.news, c.fetchNewsError
+func (c *spfClientMock) fetchNews(limit int, ch chan fetchedNews, wg *sync.WaitGroup) {
+	defer wg.Done()
+	ch <- fetchedNews{
+		news: c.news,
+		err:  c.fetchNewsError,
+	}
 }
 
 func TestNewsHandler(t *testing.T) {
@@ -57,7 +67,7 @@ func TestNewsHandler(t *testing.T) {
 			"Failure",
 			&catClientMock{
 				news:           nil,
-				fetchNewsError: errors.New("Erorr "),
+				fetchNewsError: errors.New("Error"),
 			},
 			&spfClientMock{
 				news:           nil,
@@ -127,7 +137,7 @@ func TestNewsHandler(t *testing.T) {
 			newsHandler := handleNews(tt.catClient, tt.spfClient)
 			newsHandler(rr, req)
 			response := rr.Result()
-			body, _ := ioutil.ReadAll(response.Body)
+			body, _ := io.ReadAll(response.Body)
 			response.Body.Close()
 
 			if response.StatusCode != tt.expectedStatus {
@@ -140,4 +150,5 @@ func TestNewsHandler(t *testing.T) {
 			}
 		})
 	}
+	time.Sleep(time.Second)
 }

@@ -4,10 +4,16 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"sync"
 )
 
 type newsFetcher interface {
-	fetchNews(limit int) ([]News, error)
+	fetchNews(int, chan fetchedNews, *sync.WaitGroup)
+}
+
+type fetchedNews struct {
+	news []News
+	err  error
 }
 
 func handleDBNews(client *dbClient) http.HandlerFunc {
@@ -37,21 +43,41 @@ func handleNews(catFactsClient newsFetcher, spfNewsClient newsFetcher) http.Hand
 		var spaceflightNews, catFacts []News
 		limit := getLimit(r.URL.Query().Get("limit"))
 
+		ch1 := make(chan fetchedNews, 1)
+		ch2 := make(chan fetchedNews, 1)
+
+		var wg sync.WaitGroup
+
 		if tag != "cat" {
-			var err error
-			spaceflightNews, err = spfNewsClient.fetchNews(limit)
-			if err != nil {
-				http.Error(w, "Error fetching news", http.StatusInternalServerError)
-				return
-			}
+			wg.Add(1)
+			go spfNewsClient.fetchNews(limit, ch1, &wg)
 		}
 		if tag != "space" {
-			var err error
-			catFacts, err = catFactsClient.fetchNews(limit)
-			if err != nil {
+			wg.Add(1)
+			go catFactsClient.fetchNews(limit, ch2, &wg)
+		}
+
+		wg.Wait()
+		select {
+		case data := <-ch1:
+			if data.err != nil {
 				http.Error(w, "Error fetching news", http.StatusInternalServerError)
 				return
 			}
+			spaceflightNews = data.news
+		default:
+			close(ch1)
+		}
+
+		select {
+		case data := <-ch2:
+			if data.err != nil {
+				http.Error(w, "Error fetching news", http.StatusInternalServerError)
+				return
+			}
+			catFacts = data.news
+		default:
+			close(ch2)
 		}
 
 		var news []News

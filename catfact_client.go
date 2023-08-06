@@ -1,6 +1,9 @@
 package main
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"sync"
+)
 
 type CatfactClient struct {
 	URL         string
@@ -12,16 +15,26 @@ func (c *CatfactClient) Init() {
 	c.URL = "https://cat-fact.herokuapp.com/"
 }
 
-func (c *CatfactClient) fetchNews(limit int) ([]News, error) {
+func (c *CatfactClient) fetchNews(limit int, ch chan fetchedNews, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	body, err := getRequest(c.URL + "facts/")
 	if err != nil {
-		return nil, err
+		ch <- fetchedNews{
+			news: nil,
+			err:  err,
+		}
+		return
 	}
 
 	var catFacts []CatFact
 	err = json.Unmarshal(body, &catFacts)
 	if err != nil {
-		return nil, err
+		ch <- fetchedNews{
+			news: nil,
+			err:  err,
+		}
+		return
 	}
 
 	var news []News
@@ -31,6 +44,9 @@ func (c *CatfactClient) fetchNews(limit int) ([]News, error) {
 			Summary: catFacts[i].Text,
 		})
 	}
-
-	return news, nil
+	ch <- fetchedNews{
+		news: news,
+		err:  nil,
+	}
+	close(ch)
 }
