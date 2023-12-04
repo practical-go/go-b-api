@@ -7,20 +7,20 @@ import (
 )
 
 type SpaceflightClient struct {
-	URL         string
-	TimeoutTime int
+	URL        string
+	HTTPClient httpClient
 }
 
 func (c *SpaceflightClient) Init() {
-	c.TimeoutTime = 3
 	c.URL = "https://api.spaceflightnewsapi.net/v3/"
+	c.HTTPClient = newHTTPClient(750)
 }
 
 func (c *SpaceflightClient) fetchNews(limit int, ch chan fetchedNews, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	url := fmt.Sprintf("%sarticles?_limit=%d", c.URL, limit)
-	body, err := getRequest(url)
+	body, err := c.HTTPClient.getRequest(url)
 	if err != nil {
 		ch <- fetchedNews{
 			news: nil,

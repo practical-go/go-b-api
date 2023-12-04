@@ -3,10 +3,23 @@ package main
 import (
 	"io"
 	"net/http"
+	"time"
 )
 
-func getRequest(url string) ([]byte, error) {
-	response, err := http.Get(url)
+type httpClient struct {
+	client http.Client
+}
+
+func newHTTPClient(timeoutMs time.Duration) httpClient {
+	return httpClient{
+		client: http.Client{
+			Timeout: timeoutMs * time.Millisecond,
+		},
+	}
+}
+
+func (c *httpClient) getRequest(url string) ([]byte, error) {
+	response, err := c.client.Get(url)
 	if err != nil {
 		return nil, err
 	}

@@ -6,19 +6,19 @@ import (
 )
 
 type CatfactClient struct {
-	URL         string
-	TimeoutTime float32
+	URL        string
+	HTTPClient httpClient
 }
 
 func (c *CatfactClient) Init() {
-	c.TimeoutTime = 2
 	c.URL = "https://cat-fact.herokuapp.com/"
+	c.HTTPClient = newHTTPClient(750)
 }
 
 func (c *CatfactClient) fetchNews(limit int, ch chan fetchedNews, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	body, err := getRequest(c.URL + "facts/")
+	body, err := c.HTTPClient.getRequest(c.URL + "facts/")
 	if err != nil {
 		ch <- fetchedNews{
 			news: nil,
